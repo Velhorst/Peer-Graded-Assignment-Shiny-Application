@@ -1,0 +1,129 @@
+Peer Graded Assignment Course Project - Reproducible Pitch
+========================================================
+author: RLC Velhorst
+date: 2020-06-03
+autosize: true
+
+# Sea level rise in the Netherland
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = FALSE)
+library(dplyr)
+set.seed(101)
+
+```
+
+Developing Data Products Assignment Week 4
+========================================================
+
+This document is the Pitch of the Peer Assessment project of week 4 from Coursera's course Developing Data Products, as part of the Specialization in Data Science by John Hopkins University. It was built in RStudio, using its R Presenter functionality. 
+
+## Project Goal  
+
+* Use of R Presenter
+* Pitch of Shiny App
+
+Data: Publicly Available Tide Stations
+========================================================
+The specific data in this exercise shows historical sea level in the Netherlands.  
+
+The data used for this assignment originates from the Permanent Service for Mean Sea Level.
+PSMSL is the global data bank for long term sea level change information from tide gauges and bottom pressure recorders  (for more info see [psmsl.org](https://www.psmsl.org/)).
+
+This doument shows a selection of average sea level measurements in the Netherlands, which are stored in de publicly available data: tide gauge data [Holgate et al., 2013; PSMSL, 2020].
+
+
+```{r, comment=""}
+
+# data directory
+datadir <- "./data"
+
+# file containing tide stations locations
+fn_data <- "rlr_annual/filelist.txt"
+dataf <-file.path(datadir, fn_data)
+
+# station data
+stations <- read.table(dataf, sep = ";",
+                       col.names = c('id', 'lat', 'lon', 'name', 'coastline_code', 'station_code', 'quality'),
+                       strip.white = TRUE
+                       )
+
+# Select stations in the Netherlands
+NL_coastline_code = 150
+stations.NL  <-stations[which(stations$coastline_code==NL_coastline_code),]
+
+head(stations.NL[,c('id', 'lat', 'lon', 'name')], 3)
+
+```
+
+Dutch Sea Levels
+========================================================
+
+Over the 20th century, sea levels have been rising. An important question is "how fast?". Subsequently, it is relevant to see if the rise is linear, or maybe accelerating. Therefore multiple predictions are calculated of the data. 
+
+```{r warning=FALSE, message=FALSE, error=FALSE, echo=FALSE}
+RLRdata.NL <- read.csv("./data/RLRdataNL.csv") 
+# head(RLRdata.NL)
+
+year_start = 1900
+year_end = 2050
+year_break = 1993
+
+stationname = "MAASSLUIS"
+
+statname <- stationname
+stationdata <- RLRdata.NL[which(statname == RLRdata.NL$name & RLRdata.NL$Year >year_start),]
+
+modelLin <- lm(NAP ~ Year, data = stationdata)
+
+stationdata$Yearsp <- ifelse(stationdata$Year - year_break > 0, stationdata$Year - year_break, 0)
+modelBrk <- lm(NAP ~ Yearsp + Year, data = stationdata)
+
+stationdata$Year2 <- stationdata$Year^2
+modelQdr <- lm(NAP ~ Year2 + Year, data = stationdata)
+
+# Plot all points in grey
+plot(RLRdata.NL$Year, RLRdata.NL$NAP,
+     xlab = "Year", ylab = "Yearly average Water level [mm] above NAP", 
+     main = paste("Station: ", stationname),
+     bty = "n", pch = 16,
+     xlim = c(year_start, year_end), ylim = c(-300, 300),col="grey")
+# Plot selected points in black
+points(stationdata$Year, stationdata$NAP, pch=16 , col="black", bg="white", lwd=2)
+
+# Plot linear prediction
+abline(modelLin, col = "#E41A1C", lwd = 2)
+
+
+# Plot quadratic prediction
+years <-  year_start:year_end
+model3lines <- predict(modelQdr, newdata = data.frame(
+                        Year = years, Year2 = years^2))
+lines(year_start:year_end, model3lines, col = "#4DAF4A", lwd = 2)
+
+
+# Plot broken linear prediction
+
+model2lines <- predict(modelBrk, newdata = data.frame(
+    Year = year_start:year_end, Yearsp = ifelse(year_start:year_end - year_break > 0, 
+                                                year_start:year_end - year_break, 0)))
+lines(year_start:year_end, model2lines, col = "#377EB8", lwd = 2)
+
+# Add a legend
+legend("bottomleft", 
+  legend = c("Linear", "Quadratic", "Broken Linear 1993"), 
+  col = c("#E41A1C", "#4DAF4A", "#377EB8"),
+  bty = "n", 
+  lwd = 2,
+  text.col = "black", 
+  horiz = F , 
+  inset = c(0.6, 0.08))
+```
+
+
+Shiny App
+========================================================
+I developed a Shiny App to interactively expore Dutch Sea Level data.
+Click [this link](https://velhorst.shinyapps.io/PeerGradedAssignment-CourseProject-ShinyApplication/?_ga=2.131323851.551582778.1591127640-1268744059.1591127640) to visit the App!
+
+![App preview](ShinyAppSnippet2.png)
